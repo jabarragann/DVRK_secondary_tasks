@@ -24,7 +24,7 @@ class image_converter:
 		self.bridge = CvBridge()
 		self.image_sub_left  = rospy.Subscriber("/juan_cam/right/image_raw", Image, self.left_callback)
 		self.image_sub_right = rospy.Subscriber("/juan_cam/left/image_raw", Image, self.right_callback)
-		self.camera_pedal_sub = rospy.Subscriber("/dvrk/footpedals/camera", Joy, self.pedal_callback)
+		self.camera_pedal_sub = rospy.Subscriber("/dvrk/footpedals/bicoag", Joy, self.pedal_callback)
 
 		self.misalignment = 75
 		self.fontSize = 1.4
@@ -136,9 +136,9 @@ class image_converter:
 				secondsCounter = int((pedalTimestamp - self.initTime))
 				secondsFirstDigit = secondsCounter % 10 
 				
-				print(data.buttons)
-				print(pedalTimestamp)
-				print(secondsCounter)
+				# print(data.buttons)
+				# print(pedalTimestamp)
+				# print(secondsCounter)
 				
 				if any([secondsFirstDigit == x for x in self.target]):
 					self.score += 2
@@ -160,7 +160,7 @@ def main():
 	raw_input("Press any key to start the data collection")
 	print("Starting Da vinci Operation...")
 	rospy.init_node('image_converter')
-	ic = image_converter(file=file, secondaryTime = 20)
+	ic = image_converter(file=file, secondaryTime = 30)
 	
 	try:
 		while not rospy.core.is_shutdown():
