@@ -4,16 +4,21 @@ from std_msgs.msg import Int32
 import cv2 
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
+import ntplib
 import time
+import datetime
 import numpy as np 
+from sensor_msgs.msg import CompressedImage
 
 class image_converter:
 
-	def __init__(self, secondaryTime = 5):
+	def __init__(self, secondaryTime = 5, file= None):
 
 		self.windowName = "Image Window"
 		self.image_pub1 = rospy.Publisher("modified_display_left",Image, queue_size=5)
 		self.image_pub2 = rospy.Publisher("modified_display_right",Image, queue_size=5)
+		self.image_pub1_compressed = rospy.Publisher("modified_display_left/compressed" ,CompressedImage, queue_size=5)
+		self.image_pub2_compressed = rospy.Publisher("modified_display_right/compressed",CompressedImage, queue_size=5)
 		self.bridge = CvBridge()
 		self.image_sub_left  = rospy.Subscriber("/juan_cam/right/image_raw", Image, self.left_callback)
 		self.image_sub_right = rospy.Subscriber("/juan_cam/left/image_raw", Image, self.right_callback)
@@ -36,7 +41,10 @@ class image_converter:
 		#Kernel used to blurr images when secondary task is active
 		self.smoothingKernel = np.ones((5,5),np.float32)/25
 
-		
+		#File to write timestamps
+		self.file = file
+
+
 	def update(self):
 		
 		currentTime = time.time()
@@ -50,6 +58,7 @@ class image_converter:
 				self.turnSecondaryTask = not self.turnSecondaryTask
 				self.message = "Secondary Task: {}".format("On" if self.turnSecondaryTask else "Off")
 				self.lastActivation = secondsCounter
+				self.file.write("{:.9f} {}\n".format(time.time(),self.turnSecondaryTask))
 
 				for i in range(1):
 					self.notifyUser = True
@@ -60,6 +69,7 @@ class image_converter:
 	def modifyImageAndPublish(self,cv_image, misalignment=0, publisherId=1):
 
 		publisher = self.image_pub1 if publisherId == 1 else self.image_pub2
+		compressedPublisher = self.image_pub1_compressed if publisherId == 1 else self.image_pub2_compressed
 		
 		#Blur the image if the secondary task is on
 		if self.turnSecondaryTask:
@@ -81,6 +91,13 @@ class image_converter:
 		except CvBridgeError as e:
 			print(e)
 
+		#### Create and Publish Compressed Image ####
+		msg = CompressedImage()
+		msg.header.stamp = rospy.Time.now()
+		msg.format = "jpeg"
+		msg.data = np.array(cv2.imencode('.jpg', cv_image)[1]).tostring()
+		compressedPublisher.publish(msg)
+
 	def left_callback(self,data):
 
 		try:
@@ -90,26 +107,6 @@ class image_converter:
 
 		self.modifyImageAndPublish(cv_image, misalignment=0, publisherId=1)
 
-		# #Blur the image if the secondary task is on
-		# if self.turnSecondaryTask:
-		# 	cv_image = cv2.filter2D(cv_image,-1,self.smoothingKernel)
-
-		# overlay = cv_image.copy()
-		
-		# cv2.putText(overlay, self.message,(10, 30), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
-		# cv2.putText(overlay, self.timerStr+"  "+self.scoreStr,(10, 75), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
-		
-		# if self.notifyUser:
-		# 	color = (0, 255, 0) if self.turnSecondaryTask else (0, 0, 255)
-		# 	cv2.rectangle(overlay, (0, 0), (cv_image.shape[1],cv_image.shape[0]), color, -1)
-
-		# cv2.addWeighted(overlay, self.alpha, cv_image, 1 - self.alpha, 0, cv_image)
-
-		# try:
-		# 	self.image_pub1.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-		# except CvBridgeError as e:
-		# 	print(e)
-
 	def right_callback(self,data):
 
 		try:
@@ -118,25 +115,24 @@ class image_converter:
 			print(e)
 
 		self.modifyImageAndPublish(cv_image, misalignment=self.misalignment, publisherId=2)
-		
-		# overlay = cv_image.copy()
-		
-		# cv2.putText(overlay, self.message,(10+self.misalignment, 30), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
-		# cv2.putText(overlay, self.timerStr+"  "+self.scoreStr,(10+self.misalignment, 75), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
-
-		# if self.notifyUser:
-		# 	cv2.rectangle(overlay, (0, 0), (cv_image.shape[1],cv_image.shape[0]), (0, 255, 0), -1)
-
-		# cv2.addWeighted(overlay, self.alpha, cv_image, 1 - self.alpha, 0, cv_image)
-
-		# try:
-		# 	self.image_pub2.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-		# except CvBridgeError as e:
-		# 	print(e)		
+	
 
 def main():
+	#Create File to save Timestamps
+	timeStamp = createTimeStamp()
+	file = open("./data/"+timeStamp+"S1.txt",'w')
+
+	#Communicate to NTP server
+	ntp,localTime  = ntpClient.request('europe.pool.ntp.org', version=3),time.time()
+	file.write("Initial computer time: {:.9f}\n".format(localTime))
+	file.write("Initial NTP time:      {:.9f}\n".format(ntp.tx_time))
+	file.write("NTP offset:            {:.9f}\n".format(ntp.tx_time))
+	file.write("##DATA##\n")
+	file.write("timeStamp secondary_task_status\n")
+
+	raw_input("Press any key to start the data collection")
 	rospy.init_node('image_converter')
-	ic = image_converter()
+	ic = image_converter(file=file)
 	
 	try:
 		while not rospy.core.is_shutdown():
@@ -146,9 +142,16 @@ def main():
 	except KeyboardInterrupt:
 		print("Shutting down")
 
-	cv2.destroyAllWindows()
+	finally:
+		file.close()
+		cv2.destroyAllWindows()
 
 
+def createTimeStamp():
+	ts = time.time()
+	return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H.%M.%S_')
+
+ntpClient = ntplib.NTPClient()
 
 if __name__ == '__main__':
 	print("Initializing node")
