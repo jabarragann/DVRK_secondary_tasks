@@ -1,0 +1,6 @@
+Initial computer time: 1556837060.737839937
+Initial NTP time:      1556837060.679595947
+NTP offset:            1556837060.679595947
+##DATA##
+timeStamp secondary_task_status
+1556837091.859167099 True
