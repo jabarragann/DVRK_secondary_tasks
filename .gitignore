@@ -1,0 +1,12 @@
+#Exclude everything from data directory
+
+./data/*
+
+#Exclude .txt files
+*.txt
+
+#Exclude .bag files
+*.bag
+
+#Exclude .tar.gz files
+*.tar.gz
