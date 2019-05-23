@@ -185,12 +185,13 @@ class potentiometer_calibration:
         # elif arm_type == "ECM":
         #     this_arm.move_joint(numpy.array([0.0, 0.0, 0.0, 0.0]))
 
-if __name__ == '__main__':
-    if (len(sys.argv) != 4):
-        print sys.argv[0] + ' requires three arguments, i.e. "scales"/"offsets", name of dVRK arm and file name.  Always start with scales calibration.'
-    else:
-        if (sys.argv[1] == 'offsets') or (sys.argv[1] == 'scales'):
-            calibration = potentiometer_calibration(sys.argv[2])
-            calibration.run(sys.argv[1], sys.argv[3])
-        else:
-            print sys.argv[0] + ', first argument must be either scales or offsets.  You must start with the scale calibration'
+## Main ##
+# if __name__ == '__main__':
+#     if (len(sys.argv) != 4):
+#         print sys.argv[0] + ' requires three arguments, i.e. "scales"/"offsets", name of dVRK arm and file name.  Always start with scales calibration.'
+#     else:
+#         if (sys.argv[1] == 'offsets') or (sys.argv[1] == 'scales'):
+#             calibration = potentiometer_calibration(sys.argv[2])
+#             calibration.run(sys.argv[1], sys.argv[3])
+#         else:
+#             print sys.argv[0] + ', first argument must be either scales or offsets.  You must start with the scale calibration'
