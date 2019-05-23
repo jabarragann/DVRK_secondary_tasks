@@ -18,14 +18,21 @@ class image_converter:
 	def __init__(self, secondaryTime = 5, file= None):
 
 		self.windowName = "Image Window"
+		
+		#Published topics
 		self.image_pub1 = rospy.Publisher("modified_display_left",Image, queue_size=5)
 		self.image_pub2 = rospy.Publisher("modified_display_right",Image, queue_size=5)
+		self.score_pub = rospy.Publisher("score_correctly", Joy, queue_size=5)
+		
 		self.image_pub1_compressed = rospy.Publisher("modified_display_left/compressed" ,CompressedImage, queue_size=5)
 		self.image_pub2_compressed = rospy.Publisher("modified_display_right/compressed",CompressedImage, queue_size=5)
 		self.bridge = CvBridge()
+		
+		#Subscribed topics
 		self.image_sub_left  = rospy.Subscriber("/juan_cam/right/image_raw", Image, self.left_callback)
 		self.image_sub_right = rospy.Subscriber("/juan_cam/left/image_raw", Image, self.right_callback)
 		self.camera_pedal_sub = rospy.Subscriber("/dvrk/footpedals/bicoag", Joy, self.pedal_callback)
+		self.score_sub = rospy.Subscriber("score_correctly",Joy, self.score_callback)
 
 		self.misalignment = 75
 		self.fontSize = 1.2
@@ -33,8 +40,9 @@ class image_converter:
 		self.timerStr = "Timer: 00:00"
 		self.scoreStr = ""
 		self.score = 0
-		self.alpha = 0.22
-		self.target = random.sample(range(min(secondaryTime,10)), 2)
+		self.alpha = 0.30
+		self.numberOfTargets = 2
+		self.target = random.sample(range(min(secondaryTime,10)), self.numberOfTargets)
 
 		self.initTime = time.time()
 		self.secondaryTime = secondaryTime
@@ -62,23 +70,24 @@ class image_converter:
 		if secondsCounter % self.secondaryTime == 0:
 			if secondsCounter != self.lastActivation:
 				self.turnSecondaryTask = not self.turnSecondaryTask
-				self.target = random.sample(range(1,min(self.secondaryTime,10)), 2)
+				self.target = random.sample(range(1,min(self.secondaryTime,10)), self.numberOfTargets)
 				
 				self.lastActivation = secondsCounter
 				self.file.write("{:.9f} {}\n".format(time.time(),self.turnSecondaryTask))
 
 				if self.turnSecondaryTask:
-					self.message  = "Start task, Targets {:d}, {:d}".format(self.target[0],self.target[1])
+					temp = " ".join(map(str,self.target))
+					self.message  = "Start task, Targets: {:s}".format(temp)
 					self.scoreStr = "Score: {:3d}".format(self.score)
 				else:
 					self.message = ""
 					self.scoreStr = ""
 
-				for i in range(1):
-					self.notifyUser = True
-					time.sleep(0.4)
-					self.notifyUser = False
-					time.sleep(0.4)
+				# for i in range(1):
+				# 	self.notifyUser = True
+				# 	time.sleep(0.4)
+				# 	self.notifyUser = False
+				# 	time.sleep(0.4)
 
 	def modifyImageAndPublish(self,cv_image, misalignment=0, publisherId=1):
 
@@ -94,9 +103,9 @@ class image_converter:
 		cv2.putText(overlay, self.message,(10+misalignment, 30), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
 		cv2.putText(overlay, self.timerStr+"  "+self.scoreStr,(10+misalignment, 75), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
 		
-		if self.notifyUser and False:
+		if self.notifyUser:
 			color = (0, 255, 0) if self.turnSecondaryTask else (0, 0, 255)
-			cv2.rectangle(overlay, (0, 0), (cv_image.shape[1],cv_image.shape[0]), color, -1)
+			cv2.rectangle(overlay, (660, 0), (720,60), color, -1)
 
 		cv2.addWeighted(overlay, self.alpha, cv_image, 1 - self.alpha, 0, cv_image)
 
@@ -145,6 +154,13 @@ class image_converter:
 				if any([secondsFirstDigit == x for x in self.target]):
 					self.score += 2
 					self.scoreStr = "Score: {:3d}".format(self.score)
+					self.score_pub.publish(data)
+
+	def score_callback(self,data):
+		if data.buttons[0]:
+			self.notifyUser = True
+			time.sleep(0.5)
+			self.notifyUser = False	
 
 def main(userId, trialId):
 	#Press enter to init procedure
@@ -165,7 +181,7 @@ def main(userId, trialId):
 	file.write("timeStamp secondary_task_status\n")
 	
 	rospy.init_node('image_converter')
-	ic = image_converter(file=file, secondaryTime = 15)
+	ic = image_converter(file=file, secondaryTime = 20)
 	
 	try:
 		while not rospy.core.is_shutdown():
