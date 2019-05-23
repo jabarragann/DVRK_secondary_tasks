@@ -10,3 +10,6 @@
 
 #Exclude .tar.gz files
 *.tar.gz
+
+#Exclude .xml files
+*.xml
