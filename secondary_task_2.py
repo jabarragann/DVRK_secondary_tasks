@@ -11,6 +11,7 @@ import numpy as np
 from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import Joy
 import random 
+import argparse
 
 class image_converter:
 
@@ -27,10 +28,10 @@ class image_converter:
 		self.camera_pedal_sub = rospy.Subscriber("/dvrk/footpedals/bicoag", Joy, self.pedal_callback)
 
 		self.misalignment = 75
-		self.fontSize = 1.4
-		self.message =  "Targets: "
+		self.fontSize = 1.2
+		self.message =  ""
 		self.timerStr = "Timer: 00:00"
-		self.scoreStr = "Score: 000"
+		self.scoreStr = ""
 		self.score = 0
 		self.alpha = 0.22
 		self.target = random.sample(range(min(secondaryTime,10)), 2)
@@ -61,16 +62,17 @@ class image_converter:
 		if secondsCounter % self.secondaryTime == 0:
 			if secondsCounter != self.lastActivation:
 				self.turnSecondaryTask = not self.turnSecondaryTask
-				self.scoreStr = "Score: {:3d}".format(self.score)
 				self.target = random.sample(range(1,min(self.secondaryTime,10)), 2)
 				
 				self.lastActivation = secondsCounter
 				self.file.write("{:.9f} {}\n".format(time.time(),self.turnSecondaryTask))
 
 				if self.turnSecondaryTask:
-					self.message  = "Targets {:d}, {:d}".format(self.target[0],self.target[1])
+					self.message  = "Start task, Targets {:d}, {:d}".format(self.target[0],self.target[1])
+					self.scoreStr = "Score: {:3d}".format(self.score)
 				else:
 					self.message = ""
+					self.scoreStr = ""
 
 				for i in range(1):
 					self.notifyUser = True
@@ -92,7 +94,7 @@ class image_converter:
 		cv2.putText(overlay, self.message,(10+misalignment, 30), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
 		cv2.putText(overlay, self.timerStr+"  "+self.scoreStr,(10+misalignment, 75), cv2.FONT_HERSHEY_SIMPLEX, self.fontSize, (0, 0, 255), 3)
 		
-		if self.notifyUser:
+		if self.notifyUser and False:
 			color = (0, 255, 0) if self.turnSecondaryTask else (0, 0, 255)
 			cv2.rectangle(overlay, (0, 0), (cv_image.shape[1],cv_image.shape[0]), color, -1)
 
@@ -144,23 +146,26 @@ class image_converter:
 					self.score += 2
 					self.scoreStr = "Score: {:3d}".format(self.score)
 
-def main():
+def main(userId, trialId):
+	#Press enter to init procedure
+	raw_input("Press any key to start the data collection")
+	print("Starting Da vinci Operation...")
+
 	#Create File to save Timestamps
 	timeStamp = createTimeStamp()
-	file = open("./data/"+timeStamp+"S1.txt",'w')
+	fileName = "dvrk_collection_{:s}_{:s}.txt".format(userId, trialId)
+	file = open("./data/" + timeStamp + '_' + fileName,'w')
 
-	#Communicate to NTP server
+	#Communicate to NTP server and write header to timestamp file.
 	ntp,localTime  = ntpClient.request('europe.pool.ntp.org', version=3),time.time()
 	file.write("Initial computer time: {:.9f}\n".format(localTime))
 	file.write("Initial NTP time:      {:.9f}\n".format(ntp.tx_time))
-	file.write("NTP offset:            {:.9f}\n".format(ntp.tx_time))
+	file.write("NTP offset:            {:.9f}\n".format(ntp.offset))
 	file.write("##DATA##\n")
 	file.write("timeStamp secondary_task_status\n")
-
-	raw_input("Press any key to start the data collection")
-	print("Starting Da vinci Operation...")
+	
 	rospy.init_node('image_converter')
-	ic = image_converter(file=file, secondaryTime = 30)
+	ic = image_converter(file=file, secondaryTime = 15)
 	
 	try:
 		while not rospy.core.is_shutdown():
@@ -175,12 +180,21 @@ def main():
 		cv2.destroyAllWindows()
 		print("Shutting down")
 
+
 def createTimeStamp():
 	ts = time.time()
 	return datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H.%M.%S_')
 
+#Global Variables
 ntpClient = ntplib.NTPClient()
 
 if __name__ == '__main__':
+	
+	#the userId and the trialId must be specified as command line arguments.
+	parser = argparse.ArgumentParser(description='DVRK secondary task data collection')
+	parser.add_argument('-u', '--userId' ,  help='Specify trial ID', required=True)
+	parser.add_argument('-t', '--trialId',  help='Specify user ID',  required=True)
+	args = parser.parse_args()
+
 	print("Initializing node")
-	main()
+	main(args.userId,args.trialId)
