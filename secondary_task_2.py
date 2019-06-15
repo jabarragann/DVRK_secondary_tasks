@@ -46,8 +46,8 @@ class image_converter:
 
 		self.initTime = time.time()
 		self.secondaryTime = secondaryTime
-		self.turnSecondaryTask = False
-		self.lastActivation = 0
+		self.turnSecondaryTask = True
+		self.lastActivation = -1
 
 		#Blink a green rectangle on screen to indicate the user the secondary task is starting
 		self.notifyUser= False
@@ -181,12 +181,13 @@ def main(userId, trialId):
 	file.write("timeStamp secondary_task_status\n")
 	
 	rospy.init_node('image_converter')
-	ic = image_converter(file=file, secondaryTime = 20)
+	ic = image_converter(file=file, secondaryTime = 60)
 	
 	try:
 		while not rospy.core.is_shutdown():
-			rospy.rostime.wallsleep(0.2)
 			ic.update()
+			rospy.rostime.wallsleep(0.2)
+			
 
 	except KeyboardInterrupt:
 		print("Shutting down")
