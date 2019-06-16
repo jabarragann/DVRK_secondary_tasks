@@ -17,14 +17,14 @@ weird postures. From what I have tested until now you always have to specify a v
 around -0.1 to be able to set the x and y.
 
 '''
-
+import time
 import dvrk
 import numpy as np
 import PyKDL
-import rospy
+
 
 # Create a Python proxy for PSM1, name must match ros namespace
-p = dvrk.psm('PSM1')
+p = dvrk.psm('PSM2')
 
 
 # You can home from Python
@@ -32,7 +32,7 @@ print("Turn on controller box, home robot and get robot information")
 p.home()
 
 #Move robot to zero position
-p.move_joint(np.array([0.0, 0.0, 0.10, 0.0, 0.0, 0.0]))
+p.move_joint(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
 
 print("Joints Positions")
 print(p.get_current_joint_position())
@@ -42,28 +42,43 @@ print("Joints Effort")
 print(p.get_current_joint_effort())
 print("Get Cartesian position")
 print(p.get_current_position())
-print 
 
-#Move a single joint of the robot
-print("Press c and enter to move a single joint of the robot. Make sure the robot will not collide.")
-key = raw_input()
-
-if key == 'c':
-	#Increment Joint position in 0.05
-	p.dmove_joint_one(+0.05, 2)
-	#Move first joint to 0.2 position
-	p.move_joint_one(0.4, 0)
-
-	print("Get Cartesian position")
-	print(p.get_current_position())
-
-#Move robot using cartesian position
 print("Press c and enter to move the robot using cartesian position. Make sure the robot will no collide")
+# p.move(PyKDL.Vector(0.0, 0.0, 0.0))
+
 key = raw_input()
 if key == 'c':
 	#Move to zero position
 	p.move(PyKDL.Vector(0.0, 0.0, 0.0))
-	p.move(PyKDL.Vector(-0.05, 0.05, -0.10))
 
-	print("Get Cartesian position")
+while(1):
+	key = raw_input()
+	if key == 't':
+		# move up
+		p.dmove(PyKDL.Vector(0.0, 0.0, +0.01))
+	if key == 'g':
+		# move down
+		p.dmove(PyKDL.Vector(0.0, 0.0, -0.01))
+	if key == 'a':
+		# move left x
+		p.dmove(PyKDL.Vector(-0.001, 0.0, 0.0))
+	if key == 'd':
+		# move right x
+		p.dmove(PyKDL.Vector(+0.001, 0.0, 0.0))
+	if key == 'w':
+		# move back y
+		p.dmove(PyKDL.Vector(0.0, +0.001, 0.0))
+	if key == 's':
+		# move front y
+		p.dmove(PyKDL.Vector(0.0, -0.001, 0.0))
+	if key == 'o':
+		p.open_jaw()
+	if key == 'c':
+		p.close_jaw()
+	if key == 'q':
+		break
+
+	print("Cartesian position")
 	print(p.get_current_position())
+	time.sleep(0.1)
+print('The end')

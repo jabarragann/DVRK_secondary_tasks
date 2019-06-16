@@ -1,0 +1,12 @@
+usage: secondary_task_2.py [-h] -u USERID -t TRIALID
+secondary_task_2.py: error: argument -u/--userId is required
+Initializing node
+Press any key to start the data collectionTraceback (most recent call last):
+  File "./secondary_task_2.py", line 217, in <module>
+    main(args.userId,args.trialId)
+  File "./secondary_task_2.py", line 167, in main
+    raw_input("Press any key to start the data collection")
+IOError: [Errno 9] Bad file descriptor
+Initializing node
+Starting Da vinci Operation...
+Shutting down
